@@ -28,7 +28,13 @@ class Conv(Module):
         self.stride = stride
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.padding = (kernel_size - 1) // 2
+        self.weight = Parameter(init.kaiming_uniform(in_channels * kernel_size *kernel_size, 
+                                                    out_channels * kernel_size *kernel_size, 
+                                                    (kernel_size, kernel_size, in_channels, out_channels)), 
+                                                    device=device, dtype=dtype)
+        if bias:
+            self.bias = Parameter(init.rand(self.out_channels, low=-bias_bound, high=bias_bound, device=device))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
