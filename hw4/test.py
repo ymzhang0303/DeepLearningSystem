@@ -1,28 +1,20 @@
-import sys
-sys.path.append('./python')
-import itertools
-import numpy as np
-import pytest
-import mugrade
-import torch
+import urllib.request
+import os
 
-import needle as ndl
-from needle import backend_ndarray as nd
+# Create directory if not exists
+os.makedirs('./data/ptb', exist_ok=True)
 
-np.random.seed(1)
+# Download Penn Treebank dataset
+ptb_data = "https://raw.githubusercontent.com/wojzaremba/lstm/master/data/ptb."
+for f in ['train.txt', 'test.txt', 'valid.txt']:
+    file_path = os.path.join('./data/ptb', f)
+    if not os.path.exists(file_path):
+        urllib.request.urlretrieve(ptb_data + f, file_path)
 
-print("Test 1")
-shape = (2,2)
-axes = None
-device = ndl.cpu()
-print("use cpu")
-_A = np.random.randn(*shape).astype(np.float32)
-_C = np.random.randn(*shape).astype(np.float32)
-A = ndl.Tensor(nd.array(_A), device=device)
-print("A", A)
-C = ndl.Tensor(nd.array(_C), device=device)
-print("C", C)
-B = C - A
-print("B", B)
-D = 1 - A
-print("D", D)
+# Download CIFAR-10 dataset
+cifar_path = "./data/cifar-10-batches-py"
+if not os.path.isdir(cifar_path):
+    cifar_url = "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
+    cifar_tar_path = "./data/cifar-10-python.tar.gz"
+    urllib.request.urlretrieve(cifar_url, cifar_tar_path)
+    os.system(f"tar -xvzf {cifar_tar_path} -C ./data")
