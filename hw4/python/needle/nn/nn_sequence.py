@@ -14,7 +14,7 @@ class Sigmoid(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return 1 / (ops.exp(-1) + 1)
         ### END YOUR SOLUTION
 
 class RNNCell(Module):
@@ -38,7 +38,21 @@ class RNNCell(Module):
         """
         super().__init__()
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.device = device
+        self.dtype = dtype
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        bound = np.sqrt(1/hidden_size)
+        self.W_ih = Parameter(init.rand(input_size, hidden_size, low=-bound, high=bound, device=device, dtype=dtype, requires_grad=True))
+        self.W_hh = Parameter(init.rand(hidden_size, hidden_size, low=-bound, high=bound, device=device, dtype=dtype, requires_grad=True))
+        self.use_bias = bias
+        if bias:
+            self.bias_ih = Parameter(init.rand(hidden_size, low=-bound, high=bound, device=device, dtype=dtype, requires_grad=True))
+            self.bias_hh = Parameter(init.rand(hidden_size, low=-bound, high=bound, device=device, dtype=dtype, requires_grad=True))
+        if nonlinearity == 'relu':
+            self.nonlinearity = ops.ReLU()
+        else:
+            self.nonlinearity = ops.Tanh()
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -53,7 +67,14 @@ class RNNCell(Module):
             for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        bs = X.shape[0]
+        if h is None:
+            h = init.zeros(bs, self.hidden_size, device=self.device, dtype=self.dtype, requires_grad=False)
+        out = X @ self.W_ih + h @ self.W_hh
+        if self.use_bias:
+            out += self.bias_ih.reshape((1, self.hidden_size)).broadcast_to(out.shape) +\
+            self.bias_hh.reshape((1, self.hidden_size)).broadcast_to(out.shape)
+        return self.nonlinearity(out)
         ### END YOUR SOLUTION
 
 
@@ -82,7 +103,12 @@ class RNN(Module):
         """
         super().__init__()
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.device = device
+        self.dtype = dtype
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers 
+        self.rnn_cells = [RNNCell(input_size, hidden_size, bias=bias, nonlinearity=nonlinearity, device=device, dtype=dtype)] + \
+                         [RNNCell(hidden_size, hidden_size, bias=bias, nonlinearity=nonlinearity, device=device, dtype=dtype) for _ in range(num_layers-1)]
         ### END YOUR SOLUTION
 
     def forward(self, X, h0=None):
@@ -98,7 +124,21 @@ class RNN(Module):
         h_n of shape (num_layers, bs, hidden_size) containing the final hidden state for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        seq_len, bs, input_size = X.shape
+        if h0 is None:
+            h0 = [init.zeros(bs, self.hidden_size, device=self.device, dtype=self.dtype) for _ in range(self.num_layers)]
+        else:
+            h0 = tuple(ops.split(h0, 0))
+
+        h_n = []
+        inputs = list(ops.split(X, 0))
+        for layer_idx in range(self.num_layers):
+            h = h0[layer_idx]
+            for t, input_x in enumerate(inputs):
+                h = self.rnn_cells[layer_idx](input_x, h)
+                inputs[t] = h
+            h_n.append(h)
+        return ops.stack(inputs, 0), ops.stack(h_n, 0)
         ### END YOUR SOLUTION
 
 
