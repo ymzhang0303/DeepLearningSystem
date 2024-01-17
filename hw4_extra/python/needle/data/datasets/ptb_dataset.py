@@ -25,7 +25,10 @@ class Dictionary(object):
         Returns the word's unique ID.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if word not in self.word2idx:
+            self.idx2word.append(word)
+            self.word2idx[word] = len(self.idx2word) - 1
+        return self.word2idx[word]
         ### END YOUR SOLUTION
 
     def __len__(self):
@@ -33,7 +36,7 @@ class Dictionary(object):
         Returns the number of unique words in the dictionary.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.idx2word)
         ### END YOUR SOLUTION
 
 
@@ -60,7 +63,23 @@ class Corpus(object):
         ids: List of ids
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        ids = []
+        eos_id = self.dictionary.add_word("<eos>")
+
+        def tokenize_one_line(line):
+            words = line.split()
+            for word in words:
+                ids.append(self.dictionary.add_word(word))
+            ids.append(eos_id)
+
+        with open(path, "r") as f:
+            if max_lines:
+                for _ in range(max_lines):
+                    tokenize_one_line(f.readline())
+            else:
+                for line in f:
+                    tokenize_one_line(line)
+        return ids
         ### END YOUR SOLUTION
 
 
@@ -81,7 +100,9 @@ def batchify(data, batch_size, device, dtype):
     Returns the data as a numpy array of shape (nbatch, batch_size).
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    nbatch = len(data) // batch_size
+    data = np.array(data[:nbatch * batch_size]).reshape((batch_size, nbatch)).transpose(1, 0)
+    return data
     ### END YOUR SOLUTION
 
 
@@ -105,5 +126,13 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     target - Tensor of shape (bptt*bs,) with cached data as NDArray
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    tot_seqlen = batches.shape[0]
+    assert i < tot_seqlen - 1
+    if i + bptt + 1 > tot_seqlen:
+        X = batches[i : -1, :]
+        y = batches[i+1 : , :].flatten()
+    else:
+        X = batches[i : i + bptt, :]
+        y = batches[i + 1: i + 1 + bptt, :].flatten()
+    return Tensor(X, device=device, dtype=dtype), Tensor(y, device=device, dtype=dtype)
     ### END YOUR SOLUTION
