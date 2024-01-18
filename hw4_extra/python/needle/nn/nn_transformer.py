@@ -108,7 +108,7 @@ class MultiHeadAttention(Module):
         probs = None
 
         ### BEGIN YOUR SOLUTION
-        attn = self.matmul(k, q) / np.sqrt(k_dim)
+        attn = self.matmul(q, k) / np.sqrt(k_dim)
         if self.causal:
             attn += self.create_causal_mask(queries_len, queries_len, device=self.device).broadcast_to(attn.shape)
         probs = self.dropout(self.softmax(attn))
@@ -213,9 +213,9 @@ class AttentionLayer(Module):
         k = self.k_projection(k).reshape((batch_size, keys_values_len, self.num_head, self.dim_head)).transpose((1, 2))
         v = self.v_projection(v).reshape((batch_size, keys_values_len, self.num_head, self.dim_head)).transpose((1, 2))
 
-        result, self.prob = self.attn(q, k, v)
-        result = result.transpose((1, 2)).reshape((batch_size*queries_len, self.num_head * self.dim_head))
-        result = self.out_projection(result).reshape((batch_size, keys_values_len, self.out_features))
+        result, _ = self.attn(q, k, v)
+        result = result.transpose((1, 2)).reshape((batch_size, queries_len, self.num_head * self.dim_head))
+        result = self.out_projection(result.reshape((batch_size* queries_len, self.num_head*self.dim_head))).reshape((batch_size, keys_values_len, self.out_features))
         ### END YOUR SOLUTION
 
         return result
@@ -242,7 +242,18 @@ class TransformerLayer(Module):
         self.dtype = dtype
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.attn = Sequential(
+                    AttentionLayer(q_features=q_features, num_head=num_head, dim_head=dim_head, out_features=q_features, 
+                                   dropout=dropout, causal=causal, device=device, dtype=dtype),
+                    Dropout(dropout))
+        self.mlp = Sequential(
+                        LayerNorm1d(dim=q_features, device=device, dtype=dtype),
+                        Linear(q_features, hidden_size, bias=True, device=device, dtype=dtype),
+                        ReLU(),
+                        Dropout(dropout),
+                        Linear(hidden_size, q_features, bias=True,device=device, dtype=dtype),
+                        Dropout(dropout)
+                    )
         ### END YOUR SOLUTION
 
     def forward(
@@ -258,7 +269,8 @@ class TransformerLayer(Module):
         batch_size, seq_len, x_dim = x.shape
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        x = x + self.attn(x)
+        x = x + self.mlp(x.reshape((batch_size * seq_len, x_dim))).reshape((batch_size, seq_len, x_dim))
         ### END YOUR SOLUTION
 
         return x
