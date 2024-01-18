@@ -301,10 +301,12 @@ class Transformer(Module):
         self.batch_first = batch_first
 
         ### BEGIN YOUR SOLUTION
-        self.transLayers=[TransformerLayer(q_features=embedding_size, num_head=num_head, 
-                                           dim_head=dim_head, hidden_size=hidden_size, dropout=dropout, 
-                                           causal=causal, device=device, dtype=dtype) for _ in range(num_layers)]
-        self.posEmbedding = Embedding(num_embeddings=sequence_len, embedding_dim=embedding_size, device=device, dtype=dtype)
+        self.embedding = Embedding(
+                            num_embeddings=sequence_len, embedding_dim=embedding_size, device=device, dtype=dtype)
+        self.layers = Sequential(
+                        *[TransformerLayer(q_features=embedding_size, num_head=num_head, dim_head=dim_head, hidden_size=hidden_size, 
+                                           dropout=dropout, causal=causal, device=device, dtype=dtype) for _ in range(num_layers)]
+                    )
         ### END YOUR SOLUTION
 
     def forward(
@@ -315,14 +317,26 @@ class Transformer(Module):
         if not self.batch_first:
             x = ops.transpose(x, axes=(0, 1))
 
+        # As is, your current Transformer layers are permutation-invariant, 
+        # and cannot tell which position each token is in the sequence. 
+        # To break this symmetry, you will add a positional embedding to your Transformer.
+        # The original Transformer paper uses sinusoidal positional embeddings, 
+        # and then adds to the input embeddings before the first TransformerLayer. 
+        # These work well, but a more common strategy in modern Transformers is to learn the positional embeddings.
+        # To do this, you should use needle.nn.Embedding. In your Transformer implementation, 
+        # create a learnable positional encoding using needle.nn.Embedding from homework 4, 
+        # with num_embeddings set as sequence_len. Given an input sequence, 
+        # you should create a tensor that has the timestep id of each token in the sequence 
+        # (timesteps have increasing value, representing the position of a token in time), and use it like a word id.
+        # Last, add the created positional encoding to the input token embeddings before your transformer layers.
         ### BEGIN YOUR SOLUTION
-        batch_size, seq_len, embedding_size = x.shape
-        pos = Tensor([i for i in range(seq_len)], device=self.device, dtype=self.dtype, requires_grad=False)
+            
+        batch_size, seq_len, input_dim = x.shape
+        pos = Tensor(np.arange(x.shape[1]), dtype=x.dtype, device=x.device)
         pos = pos.reshape((seq_len, 1)).broadcast_to((seq_len, batch_size))
-        pos = self.posEmbedding(pos).transpose((0, 1))
-        x += pos
-        for m in self.transLayers:
-            x = m(x)
+        x = x + self.embedding(pos).transpose((0, 1))
+        x = self.layers(x)
+
         ### END YOUR SOLUTION
 
         if not self.batch_first:
